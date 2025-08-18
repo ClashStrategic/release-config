@@ -55,7 +55,7 @@ function createGitHubWorkflow(options = {}) {
   const {
     name = 'Release',
     branches = ['main'],
-    nodeVersion = '18',
+    nodeVersion = 'lts/*',
     runTests = false,
     testCommand = 'npm test',
     buildCommand = null,
