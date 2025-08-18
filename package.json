@@ -1,0 +1,24 @@
+{
+  "name": "@clash-strategic/release-config",
+  "version": "0.1.0",
+  "description": "Shared semantic-release config for Clash Strategic repositories (internal use).",
+  "main": "index.js",
+  "license": "UNLICENSED",
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:clash-strategic/release-config.git"
+  },
+  "files": [
+    "index.js",
+    "update-version.js",
+    "README.md"
+  ],
+  "keywords": [
+    "semantic-release",
+    "config",
+    "clash-strategic"
+  ],
+  "devDependencies": {
+    "semantic-release": "^24.2.7"
+  }
+}
