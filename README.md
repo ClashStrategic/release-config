@@ -1,18 +1,29 @@
 # @clash-strategic/release-config
 
-Shared semantic-release configuration for Clash Strategic repositories.
+Shared semantic-release configuration for Clash Strategic repositories. This package provides a standardized configuration for automated versioning, changelog generation, and releases across all our projects.
+
+## Features
+
+- 🚀 **Automated versioning** using semantic-release
+- 📝 **Automatic changelog generation**
+- 🔄 **Configurable file version updates** with regex patterns
+- 🌿 **Multi-branch support** (main + beta prerelease)
+- 📦 **Flexible npm publishing** (can be disabled for internal packages)
+- ⚙️ **Customizable git assets and commit messages**
 
 ## Installation
 
 ```bash
-# From local/private repository
-npm install file:../path/to/shared-semantic-config
+# Install from GitHub (recommended)
+npm install --save-dev git+https://github.com/ClashStrategic/release-config.git
 
-# Or from private git repository
-npm install git+ssh://git@github.com:clash-strategic/release-config.git
+# Install semantic-release and required plugins
+npm install --save-dev semantic-release @semantic-release/commit-analyzer @semantic-release/release-notes-generator @semantic-release/npm @semantic-release/changelog @semantic-release/git @semantic-release/github
 ```
 
-## Basic Usage
+## Quick Start
+
+1. **Create a `release.config.js` file** in your project root:
 
 ```javascript
 // release.config.js
@@ -20,9 +31,78 @@ const buildConfig = require("@clash-strategic/release-config");
 
 module.exports = buildConfig({
   // Repository-specific options
-  extraPrepare: [["./scripts/custom-script.js"]],
-  gitAssets: ["CHANGELOG.md", "package.json", "custom-file.php"],
+  npmPublish: false, // Set to true if you want to publish to npm
+  gitAssets: ["CHANGELOG.md", "package.json", "package-lock.json"],
+});
+```
+
+2. **Add the semantic-release script** to your `package.json`:
+
+```json
+{
+  "scripts": {
+    "semantic-release": "semantic-release"
+  }
+}
+```
+
+3. **Set up your CI/CD environment** with a GitHub token:
+
+   - Create a [GitHub Personal Access Token](https://github.com/settings/tokens) with `repo` permissions
+   - Set it as `GITHUB_TOKEN` or `GH_TOKEN` environment variable in your CI/CD
+
+4. **Generate GitHub Actions workflow** (optional but recommended):
+
+```bash
+# This will create .github/workflows/release.yml automatically
+npx setup-release-workflow
+
+# Or if you installed the package locally
+npm run setup-workflow
+```
+
+5. **Run semantic-release** in your CI/CD pipeline:
+
+```bash
+npm run semantic-release
+```
+
+### Simple Configuration (Most Common)
+
+```javascript
+// release.config.js - For internal packages
+const buildConfig = require("@clash-strategic/release-config");
+
+module.exports = buildConfig({
   npmPublish: false,
+  gitAssets: ["CHANGELOG.md", "package.json", "package-lock.json"],
+});
+```
+
+### NPM Package Configuration
+
+```javascript
+// release.config.js - For packages published to npm
+const buildConfig = require("@clash-strategic/release-config");
+
+module.exports = buildConfig({
+  npmPublish: true,
+  gitAssets: ["CHANGELOG.md", "package.json", "package-lock.json"],
+});
+```
+
+### Custom Configuration
+
+```javascript
+// release.config.js - With custom options
+const buildConfig = require("@clash-strategic/release-config");
+
+module.exports = buildConfig({
+  npmPublish: false,
+  gitAssets: ["CHANGELOG.md", "package.json", "src/version.php"],
+  gitMessage:
+    "🚀 Release ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}",
+  extraPrepare: [["./scripts/custom-build.js"]],
 });
 ```
 
@@ -88,15 +168,146 @@ createUpdateVersionPlugin(files, datetimeFormat);
 
 ## Configuration Options
 
-- `branches`: Array of branches (default: main + beta prerelease)
-- `npmPublish`: Boolean to publish to npm (default: false)
-- `extraPrepare`: Array of additional prepare plugins
-- `gitAssets`: Array of files for the release commit
-- `gitMessage`: Custom commit message
+| Option         | Type    | Default                                                 | Description                        |
+| -------------- | ------- | ------------------------------------------------------- | ---------------------------------- |
+| `branches`     | Array   | `['main', { name: 'beta', prerelease: 'beta' }]`        | Branches to release from           |
+| `npmPublish`   | Boolean | `false`                                                 | Whether to publish to npm registry |
+| `gitAssets`    | Array   | `['CHANGELOG.md', 'package.json', 'package-lock.json']` | Files to include in release commit |
+| `gitMessage`   | String  | `'chore(release): ${nextRelease.version} [skip ci]...'` | Commit message template            |
+| `extraPrepare` | Array   | `[]`                                                    | Additional prepare plugins to run  |
+
+## Commit Message Convention
+
+This configuration uses [Conventional Commits](https://www.conventionalcommits.org/). Use these prefixes:
+
+- `feat:` - New features (triggers minor version bump)
+- `fix:` - Bug fixes (triggers patch version bump)
+- `docs:` - Documentation changes
+- `style:` - Code style changes
+- `refactor:` - Code refactoring
+- `test:` - Test changes
+- `chore:` - Maintenance tasks
+
+**Breaking changes:** Add `BREAKING CHANGE:` in commit body or use `!` after type (e.g., `feat!:`) to trigger major version bump.
 
 ## Testing
 
 ```bash
-# Test the update-version plugin
-node shared-semantic-config/test-update-version.js
+# Test the update-version plugin locally
+node test-update-version.js
+
+# Test semantic-release in dry-run mode (requires GITHUB_TOKEN)
+npm run semantic-release -- --dry-run
 ```
+
+## Automatic Workflow Generation
+
+This package includes a convenient script to automatically generate GitHub Actions workflows:
+
+### Basic Usage
+
+```bash
+# Generate a basic workflow with defaults
+npx setup-release-workflow
+```
+
+### Programmatic Usage
+
+```javascript
+const {
+  createGitHubWorkflow,
+  setupWorkflow,
+} = require("@clash-strategic/release-config");
+
+// Generate workflow content only
+const workflowContent = createGitHubWorkflow({
+  name: "Release",
+  branches: ["main", "develop"],
+  nodeVersion: "18",
+  runTests: true,
+  testCommand: "npm test",
+  buildCommand: "npm run build",
+});
+
+// Or create the workflow file directly
+setupWorkflow({
+  name: "Custom Release",
+  branches: ["main"],
+  nodeVersion: "20",
+  runTests: true,
+  additionalSteps: [
+    {
+      name: "Deploy to staging",
+      run: "npm run deploy:staging",
+      env: { STAGE: "staging" },
+    },
+  ],
+});
+```
+
+### Workflow Options
+
+| Option            | Type    | Default      | Description                         |
+| ----------------- | ------- | ------------ | ----------------------------------- |
+| `name`            | String  | `'Release'`  | Workflow name                       |
+| `branches`        | Array   | `['main']`   | Branches that trigger the workflow  |
+| `nodeVersion`     | String  | `'18'`       | Node.js version to use              |
+| `runTests`        | Boolean | `false`      | Whether to run tests before release |
+| `testCommand`     | String  | `'npm test'` | Command to run tests                |
+| `buildCommand`    | String  | `null`       | Optional build command              |
+| `additionalSteps` | Array   | `[]`         | Custom steps to add before release  |
+
+## CI/CD Integration
+
+### Generated GitHub Actions Workflow
+
+When you run `npx setup-release-workflow`, it creates:
+
+### GitLab CI Example
+
+```yaml
+# .gitlab-ci.yml
+release:
+  stage: release
+  image: node:18
+  script:
+    - npm ci
+    - npm run semantic-release
+  variables:
+    GITHUB_TOKEN: $CI_JOB_TOKEN
+  only:
+    - main
+```
+
+## Troubleshooting
+
+### Common Issues
+
+**Error: "No GitHub token specified"**
+
+- Solution: Set `GITHUB_TOKEN` or `GH_TOKEN` environment variable
+
+**Error: "Cannot find module '@semantic-release/...'"**
+
+- Solution: Install missing plugins with npm
+
+**Error: "Host key verification failed"**
+
+- Solution: Use HTTPS instead of SSH for repository URL
+
+**No release created despite commits**
+
+- Check commit message format follows conventional commits
+- Ensure commits contain `feat:`, `fix:`, or `BREAKING CHANGE:`
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Test with `npm run semantic-release -- --dry-run`
+5. Submit a pull request
+
+## License
+
+UNLICENSED - Internal use only for Clash Strategic projects.
