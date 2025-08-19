@@ -1,6 +1,6 @@
 {
   "name": "@clash-strategic/release-config",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Shared semantic-release config with automatic GitHub Actions workflow generation for Clash Strategic repositories (internal use).",
   "main": "index.js",
   "license": "UNLICENSED",
