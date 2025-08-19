@@ -31,7 +31,7 @@
     "setup-release-workflow": "./setup-workflow.js"
   },
   "devDependencies": {
-    "@clash-strategic/release-config": "https://github.com/ClashStrategic/release-config.git#v0.1.0",
+    "@clash-strategic/release-config": "https://github.com/ClashStrategic/release-config/archive/v0.1.0.tar.gz",
     "@semantic-release/changelog": "^6.0.3",
     "@semantic-release/commit-analyzer": "^13.0.1",
     "@semantic-release/git": "^10.0.1",
