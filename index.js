@@ -60,7 +60,12 @@ function createGitHubWorkflow(options = {}) {
     testCommand = 'npm test',
     buildCommand = null,
     workingDirectory = '.',
-    additionalSteps = []
+    additionalSteps = [],
+    permissions = {
+      contents: 'write',
+      'id-token': 'write',
+
+    }
   } = options;
 
   const branchesArray = Array.isArray(branches) ? branches : [branches];
@@ -130,6 +135,15 @@ function createGitHubWorkflow(options = {}) {
   steps.push('        env:');
   steps.push('          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}');
 
+  let permissionsBlock = '';
+  if (permissions && Object.keys(permissions).length > 0) {
+    const lines = ['    permissions:'];
+    Object.entries(permissions).forEach(([key, value]) => {
+      lines.push(`      ${key}: ${value}`);
+    });
+    permissionsBlock = lines.join('\n') + '\n';
+  }
+
   const workflow = `name: ${name}
 
 on:
@@ -139,6 +153,8 @@ on:
 jobs:
   release:
     runs-on: ubuntu-latest
+
+${permissionsBlock}
     steps:
 ${steps.join('\n')}`;
 
