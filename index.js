@@ -435,7 +435,7 @@ module.exports.validateConfig = validateConfig;
  * @fileoverview Usage Examples:
  *
  * // BASIC USAGE - Default export
- * const createConfig = require('shared-semantic-config');
+ * const createConfig = require('release-config');
  *
  * // For npm packages
  * const config = createConfig({ npmPublish: true });
@@ -444,7 +444,7 @@ module.exports.validateConfig = validateConfig;
  * const config = createConfig({ npmPublish: false });
  *
  * // NAMED EXPORTS - For specific functions
- * const { buildSemanticReleaseConfig, createGitHubWorkflow, validateConfig } = require('shared-semantic-config');
+ * const { buildSemanticReleaseConfig, createGitHubWorkflow, validateConfig } = require('release-config');
  *
  * const config = buildSemanticReleaseConfig({
  *   branches: ['main', 'develop'],
@@ -470,7 +470,7 @@ module.exports.validateConfig = validateConfig;
  *   createUpdateVersionPlugin,
  *   createGitHubWorkflow,
  *   validateConfig
- * } = require('shared-semantic-config');
+ * } = require('release-config');
  *
  * const versionPlugin = createUpdateVersionPlugin([
  *   { path: 'VERSION.txt', pattern: 'any-regex-pattern', replacement: '${version}' },
