@@ -269,3 +269,53 @@ ${steps.join('\n')}`;
 module.exports = buildSemanticReleaseConfig;
 module.exports.createUpdateVersionPlugin = createUpdateVersionPlugin;
 module.exports.createGitHubWorkflow = createGitHubWorkflow;
+
+/**
+ * @fileoverview Usage Examples:
+ *
+ * // BASIC USAGE - Default export
+ * const createConfig = require('shared-semantic-config');
+ *
+ * // For npm packages
+ * const config = createConfig({ npmPublish: true });
+ *
+ * // For non-npm projects
+ * const config = createConfig({ npmPublish: false });
+ *
+ * // NAMED EXPORTS - For specific functions
+ * const { buildSemanticReleaseConfig, createGitHubWorkflow } = require('shared-semantic-config');
+ *
+ * const config = buildSemanticReleaseConfig({
+ *   branches: ['main', 'develop'],
+ *   npmPublish: true
+ * });
+ *
+ * const workflow = createGitHubWorkflow({
+ *   runTests: true,
+ *   buildCommand: 'npm run build'
+ * });
+ *
+ * // COMPLETE SETUP - With version updates
+ * const {
+ *   buildSemanticReleaseConfig,
+ *   createUpdateVersionPlugin,
+ *   createGitHubWorkflow
+ * } = require('shared-semantic-config');
+ *
+ * const versionPlugin = createUpdateVersionPlugin([
+ *   { path: 'VERSION.txt', pattern: 'any-regex-pattern', replacement: '${version}' },
+ *   { path: 'src/version.js', pattern: 'version-regex-pattern', replacement: 'version: "${version}"' }
+ * ]);
+ *
+ * const config = buildSemanticReleaseConfig({
+ *   npmPublish: true,
+ *   extraPrepare: [versionPlugin],
+ *   gitAssets: ['CHANGELOG.md', 'package.json', 'package-lock.json', 'VERSION.txt', 'src/version.js']
+ * });
+ *
+ * const workflow = createGitHubWorkflow({
+ *   name: 'CI/CD Pipeline',
+ *   runTests: true,
+ *   buildCommand: 'npm run build'
+ * });
+ */
