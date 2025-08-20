@@ -605,7 +605,8 @@ jobs:
 
 ${permissionsBlock}
     steps:
-${steps.join('\n')}`;
+${steps.join('\n')}
+`;
 
   return workflow;
 }
