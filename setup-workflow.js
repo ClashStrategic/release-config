@@ -6,7 +6,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { createGitHubWorkflow } = require('./index.js');
+const { createSmartWorkflow, detectUserConfiguration } = require('./index.js');
 
 /**
  * Creates the .github/workflows directory and release.yml file
@@ -21,8 +21,8 @@ function setupWorkflow(options = {}) {
     console.log('✅ Created .github/workflows directory');
   }
 
-  // Generate workflow content
-  const workflowContent = createGitHubWorkflow(options);
+  // Generate workflow content using smart defaults
+  const workflowContent = createSmartWorkflow(options);
 
   // Write workflow file
   fs.writeFileSync(workflowFile, workflowContent);
@@ -37,15 +37,32 @@ function setupWorkflow(options = {}) {
 function interactiveSetup() {
   console.log('🚀 Setting up GitHub Actions workflow for semantic-release...\n');
 
-  // For now, use defaults. In the future, we could add prompts here
-  const options = {
-    name: 'Release',
-    branches: ['main'],
-    nodeVersion: '18',
-    runTests: false
-  };
-
   try {
+    // Auto-detect current project configuration
+    console.log('🔍 Analyzing your project configuration...');
+    const detectedConfig = detectUserConfiguration();
+
+    console.log('\n📋 Detected configuration:');
+    console.log(`   • Branches: ${detectedConfig.branches.join(', ')}`);
+    console.log(`   • Node.js version: ${detectedConfig.nodeVersion}`);
+    console.log(`   • Run tests: ${detectedConfig.runTests ? 'Yes' : 'No'}`);
+    if (detectedConfig.testCommand) {
+      console.log(`   • Test command: ${detectedConfig.testCommand}`);
+    }
+    if (detectedConfig.buildCommand) {
+      console.log(`   • Build command: ${detectedConfig.buildCommand}`);
+    }
+    if (detectedConfig.additionalScripts.length > 0) {
+      console.log(`   • Additional scripts found: ${detectedConfig.additionalScripts.join(', ')}`);
+    }
+    console.log(`   • NPM package: ${detectedConfig.isNpmPackage ? 'Yes' : 'No'}`);
+
+    // Use auto-detected configuration (createGitHubWorkflow will auto-detect by default)
+    const options = {
+      name: 'Release'
+      // Let createGitHubWorkflow auto-detect everything else
+    };
+
     const workflowFile = setupWorkflow(options);
 
     console.log('\n🎉 Setup complete!');

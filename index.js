@@ -272,31 +272,210 @@ function validateConfig(config, options = {}) {
 }
 
 /**
+ * Detects user configuration from the current project to generate appropriate workflow settings.
+ *
+ * This function analyzes the current project's package.json, semantic-release config,
+ * and other configuration files to automatically determine the best workflow settings.
+ *
+ * @param {string} [projectPath=process.cwd()] - Path to the project directory
+ * @returns {Object} Detected configuration object
+ * @returns {Array<string>} returns.branches - Detected release branches
+ * @returns {string} returns.nodeVersion - Detected or recommended Node.js version
+ * @returns {boolean} returns.runTests - Whether tests should be run
+ * @returns {string|null} returns.testCommand - Command to run tests
+ * @returns {string|null} returns.buildCommand - Command to build the project
+ * @returns {boolean} returns.isNpmPackage - Whether this is an npm package
+ * @returns {Array<string>} returns.additionalScripts - Other relevant scripts found
+ */
+function detectUserConfiguration(projectPath = process.cwd()) {
+  const fs = require('fs');
+
+  const config = {
+    branches: ['main'],
+    nodeVersion: 'lts/*',
+    runTests: false,
+    testCommand: null,
+    buildCommand: null,
+    isNpmPackage: false,
+    additionalScripts: []
+  };
+
+  try {
+    // Read package.json
+    const packageJsonPath = path.join(projectPath, 'package.json');
+    if (fs.existsSync(packageJsonPath)) {
+      const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+
+      // Detect if it's an npm package
+      config.isNpmPackage = !packageJson.private && (packageJson.name && packageJson.name.startsWith('@') || packageJson.publishConfig);
+
+      // Detect Node.js version from engines
+      if (packageJson.engines && packageJson.engines.node) {
+        const nodeVersion = packageJson.engines.node;
+        // Convert common patterns to GitHub Actions format
+        if (nodeVersion.includes('>=')) {
+          const minVersion = nodeVersion.replace(/[^\d.]/g, '');
+          config.nodeVersion = minVersion;
+        } else if (nodeVersion.includes('^') || nodeVersion.includes('~')) {
+          config.nodeVersion = nodeVersion.replace(/[^\d.]/g, '');
+        } else {
+          config.nodeVersion = nodeVersion;
+        }
+      }
+
+      // Detect scripts
+      if (packageJson.scripts) {
+        const scripts = packageJson.scripts;
+
+        // Test detection - be conservative, only enable if explicitly configured
+        // Check for CI-specific test scripts first (these indicate intention to run tests in CI)
+        if (scripts['test:ci']) {
+          config.runTests = true;
+          config.testCommand = 'npm run test:ci';
+        } else if (scripts['test:prod'] || scripts['test:production']) {
+          config.runTests = true;
+          config.testCommand = scripts['test:prod'] ? 'npm run test:prod' : 'npm run test:production';
+        } else if (scripts.test &&
+          scripts.test !== 'echo "Error: no test specified" && exit 1' &&
+          scripts.test !== 'exit 1' &&
+          !scripts.test.includes('no test specified')) {
+          // Only enable regular test script if it's not the default npm placeholder
+          // and if there are actual test files or test frameworks detected
+          const hasTestFramework = scripts.jest || scripts.mocha || scripts.vitest ||
+            scripts.ava || scripts.tap || scripts.nyc ||
+            packageJson.devDependencies && (
+              packageJson.devDependencies.jest ||
+              packageJson.devDependencies.mocha ||
+              packageJson.devDependencies.vitest ||
+              packageJson.devDependencies.ava ||
+              packageJson.devDependencies.tap ||
+              packageJson.devDependencies['@testing-library/react'] ||
+              packageJson.devDependencies['@testing-library/vue'] ||
+              packageJson.devDependencies.cypress ||
+              packageJson.devDependencies.playwright
+            );
+
+          if (hasTestFramework) {
+            config.runTests = true;
+            config.testCommand = 'npm test';
+          }
+        }
+
+        // Check for specific test framework scripts
+        if (!config.runTests) {
+          if (scripts.jest) {
+            config.runTests = true;
+            config.testCommand = 'npm run jest';
+          } else if (scripts.mocha) {
+            config.runTests = true;
+            config.testCommand = 'npm run mocha';
+          } else if (scripts.vitest) {
+            config.runTests = true;
+            config.testCommand = 'npm run vitest';
+          }
+        }
+
+        // Build detection
+        if (scripts.build) {
+          config.buildCommand = 'npm run build';
+        } else if (scripts.compile) {
+          config.buildCommand = 'npm run compile';
+        } else if (scripts.dist) {
+          config.buildCommand = 'npm run dist';
+        }
+
+        // Additional useful scripts
+        ['lint', 'format', 'typecheck', 'validate'].forEach(scriptName => {
+          if (scripts[scriptName]) {
+            config.additionalScripts.push(scriptName);
+          }
+        });
+      }
+    }
+
+    // Read semantic-release configuration
+    const releaseConfigPaths = [
+      'release.config.js',
+      'release.config.json',
+      '.releaserc.js',
+      '.releaserc.json',
+      '.releaserc'
+    ];
+
+    for (const configPath of releaseConfigPaths) {
+      const fullPath = path.join(projectPath, configPath);
+      if (fs.existsSync(fullPath)) {
+        try {
+          let releaseConfig;
+          if (configPath.endsWith('.json') || configPath === '.releaserc') {
+            releaseConfig = JSON.parse(fs.readFileSync(fullPath, 'utf8'));
+          } else {
+            // For .js files, we need to actually execute them to get the real config
+            delete require.cache[require.resolve(fullPath)];
+            releaseConfig = require(fullPath);
+          }
+
+          if (releaseConfig && releaseConfig.branches) {
+            // Extract branch names from semantic-release branch config
+            config.branches = releaseConfig.branches.map(branch => {
+              if (typeof branch === 'string') return branch;
+              if (typeof branch === 'object' && branch.name) return branch.name;
+              return 'main'; // fallback
+            }).filter(Boolean);
+          }
+          break;
+        } catch (error) {
+          // Continue to next config file if this one fails
+          console.warn(`Warning: Could not parse ${configPath}: ${error.message}`);
+        }
+      }
+    }
+
+  } catch (error) {
+    console.warn(`Warning: Error detecting configuration: ${error.message}`);
+  }
+
+  return config;
+}
+
+/**
  * Creates a complete GitHub Actions workflow for semantic-release.
  *
  * This function generates a ready-to-use GitHub Actions workflow YAML content
  * that can be saved to .github/workflows/release.yml in your repository.
  *
+ * When called without options, it automatically detects the user's current configuration
+ * from package.json, semantic-release config, and other project files.
+ *
  * @param {Object} [options={}] - Workflow configuration options
  * @param {string} [options.name='Release'] - Name of the GitHub Actions workflow
- * @param {Array<string>|string} [options.branches=['main']] - Branches that trigger the release workflow
- * @param {string} [options.nodeVersion='lts/*'] - Node.js version to use (e.g., '18', 'lts/*', '20.x')
- * @param {boolean} [options.runTests=false] - Whether to run tests before releasing
- * @param {string} [options.testCommand='npm test'] - Command to run tests
- * @param {string|null} [options.buildCommand=null] - Optional build command to run before release
+ * @param {Array<string>|string} [options.branches] - Branches that trigger the release workflow (auto-detected if not provided)
+ * @param {string} [options.nodeVersion] - Node.js version to use (auto-detected if not provided)
+ * @param {boolean} [options.runTests] - Whether to run tests before releasing (auto-detected if not provided)
+ * @param {string} [options.testCommand] - Command to run tests (auto-detected if not provided)
+ * @param {string|null} [options.buildCommand] - Optional build command to run before release (auto-detected if not provided)
  * @param {Array<Object|string>} [options.additionalSteps=[]] - Custom steps to add before release
  * @param {Object} [options.permissions] - GitHub token permissions for the workflow
+ * @param {boolean} [options.autoDetect=true] - Whether to auto-detect configuration from project files
+ * @param {string} [options.projectPath=process.cwd()] - Path to project for auto-detection
  *
  * @returns {string} Complete GitHub Actions workflow YAML content
  *
  * @example
- * // Basic workflow for main branch
+ * // Auto-detect configuration from current project
  * const workflow = createGitHubWorkflow();
  *
  * @example
- * // Workflow with tests and build step
+ * // Override specific settings while keeping auto-detection for others
  * const workflow = createGitHubWorkflow({
  *   name: 'CI/CD Release',
+ *   runTests: true // Force tests even if not detected
+ * });
+ *
+ * @example
+ * // Completely manual configuration (disable auto-detection)
+ * const workflow = createGitHubWorkflow({
+ *   autoDetect: false,
  *   branches: ['main', 'develop'],
  *   runTests: true,
  *   buildCommand: 'npm run build'
@@ -315,13 +494,22 @@ function createGitHubWorkflow(options = {}) {
   // Handle null/undefined options
   const opts = options || {};
 
+  // Auto-detect configuration if enabled
+  const autoDetect = opts.autoDetect !== false; // Default to true
+  const projectPath = opts.projectPath || process.cwd();
+
+  let detectedConfig = {};
+  if (autoDetect) {
+    detectedConfig = detectUserConfiguration(projectPath);
+  }
+
   const {
     name = 'Release',
-    branches = ['main'],
-    nodeVersion = 'lts/*',
-    runTests = false,
-    testCommand = 'npm test',
-    buildCommand = null,
+    branches = detectedConfig.branches || ['main'],
+    nodeVersion = detectedConfig.nodeVersion || 'lts/*',
+    runTests = detectedConfig.runTests !== undefined ? detectedConfig.runTests : false,
+    testCommand = detectedConfig.testCommand || 'npm test',
+    buildCommand = detectedConfig.buildCommand || null,
     additionalSteps = [],
     permissions = {
       contents: 'write',
@@ -422,6 +610,70 @@ ${steps.join('\n')}`;
   return workflow;
 }
 
+/**
+ * Creates a GitHub Actions workflow with smart defaults based on the current project.
+ *
+ * This is a convenience function that automatically detects your project configuration
+ * and generates an appropriate workflow. It's the recommended way to generate workflows
+ * for most projects.
+ *
+ * @param {Object} [overrides={}] - Optional overrides for specific settings
+ * @returns {string} Complete GitHub Actions workflow YAML content
+ *
+ * @example
+ * // Generate workflow with smart defaults
+ * const workflow = createSmartWorkflow();
+ *
+ * @example
+ * // Override specific settings while keeping smart defaults for others
+ * const workflow = createSmartWorkflow({
+ *   name: 'Custom Release Pipeline',
+ *   runTests: true // Force tests even if not detected
+ * });
+ */
+function createSmartWorkflow(overrides = {}) {
+  const detectedConfig = detectUserConfiguration();
+
+  // Merge detected config with any user overrides
+  const workflowOptions = {
+    name: 'Release',
+    branches: detectedConfig.branches,
+    nodeVersion: detectedConfig.nodeVersion,
+    runTests: detectedConfig.runTests,
+    testCommand: detectedConfig.testCommand,
+    buildCommand: detectedConfig.buildCommand,
+    ...overrides // User overrides take precedence
+  };
+
+  // Add smart additional steps based on detected scripts
+  if (!overrides.additionalSteps && detectedConfig.additionalScripts.length > 0) {
+    const additionalSteps = [];
+
+    // Add lint step if available
+    if (detectedConfig.additionalScripts.includes('lint')) {
+      additionalSteps.push({
+        name: 'Lint code',
+        run: 'npm run lint'
+      });
+    }
+
+    // Add typecheck step if available
+    if (detectedConfig.additionalScripts.includes('typecheck')) {
+      additionalSteps.push({
+        name: 'Type check',
+        run: 'npm run typecheck'
+      });
+    }
+
+    workflowOptions.additionalSteps = additionalSteps;
+  }
+
+  return createGitHubWorkflow({
+    ...workflowOptions,
+    autoDetect: false // We already detected, no need to detect again
+  });
+}
+
 // Export the main function as default export for simple usage
 module.exports = buildSemanticReleaseConfig;
 
@@ -429,6 +681,8 @@ module.exports = buildSemanticReleaseConfig;
 module.exports.buildSemanticReleaseConfig = buildSemanticReleaseConfig;
 module.exports.createUpdateVersionPlugin = createUpdateVersionPlugin;
 module.exports.createGitHubWorkflow = createGitHubWorkflow;
+module.exports.createSmartWorkflow = createSmartWorkflow;
+module.exports.detectUserConfiguration = detectUserConfiguration;
 module.exports.validateConfig = validateConfig;
 
 /**
