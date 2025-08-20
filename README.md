@@ -2,17 +2,27 @@
 
 Shared semantic-release configuration for Clash Strategic repositories. This package provides a **simple and easy-to-use** configuration for automated versioning, changelog generation, and releases across all our projects.
 
+## 🆕 What's New in v0.4.0
+
+- 🔍 **Advanced Validation with Dry-Run** - The validator now simulates plugin execution without modifying files
+- 📝 **Dual Format Support** - Simple format (`{ path, pattern, replacement }`) and Advanced format (`{ path, patterns: [...] }`)
+- 🛠️ **Smart Error Detection** - Detects typos and suggests corrections (e.g., `pathss` → `path`)
+- ✅ **File Validation** - Checks if target files exist and patterns actually match content
+- 🎯 **Better Feedback** - Detailed error messages with specific plugin, file, and pattern numbers
+
 ## ✨ Features
 
 - 🚀 **Automated versioning** using semantic-release
 - 📝 **Automatic changelog generation**
-- 🔄 **Configurable file version updates** with regex patterns
+- 🔄 **Dual-format file version updates** - Simple & Advanced patterns with regex
 - 🌿 **Multi-branch support** (main + beta prerelease)
 - 📦 **Flexible npm publishing** (can be disabled for internal packages)
 - ⚙️ **Customizable git assets and commit messages**
 - 🎯 **Simple convenience functions** for common use cases
-- 📋 **GitHub Actions workflow generation**
-- ✅ **Configuration validation** with detailed feedback and suggestions
+- 📋 **GitHub Actions workflow generation** with smart auto-detection
+- ✅ **Advanced configuration validation** with dry-run simulation
+- 🔍 **Smart error detection** with typo suggestions and file validation
+- 🧪 **Dry-run testing** - Validates regex patterns against actual files without modifications
 
 ## 📦 Installation
 
@@ -153,9 +163,9 @@ module.exports = buildSemanticReleaseConfig({
 
 ## 🔄 Version Update Plugin
 
-This package includes a versatile plugin to update versions and dates in any file using configurable patterns.
+This package includes a versatile plugin to update versions and dates in any file using configurable patterns. **Supports two formats**: simple (single pattern per file) and advanced (multiple patterns per file).
 
-### 📝 Simple Usage
+### 📝 Simple Format (Recommended for single patterns)
 
 ```javascript
 const {
@@ -163,16 +173,16 @@ const {
   createUpdateVersionPlugin,
 } = require("@clash-strategic/release-config");
 
-// Update version in custom files
+// Simple format - one pattern per file
 const versionPlugin = createUpdateVersionPlugin([
   {
     path: "src/version.js",
-    pattern: "version-regex-pattern",
+    pattern: /export const VERSION = ".*?";/,
     replacement: 'export const VERSION = "${version}";',
   },
   {
     path: "VERSION.txt",
-    pattern: "any-pattern",
+    pattern: /\d+\.\d+\.\d+/,
     replacement: "${version}",
   },
 ]);
@@ -184,50 +194,82 @@ module.exports = buildSemanticReleaseConfig({
 });
 ```
 
-### 🔧 Advanced Pattern Configuration
+### 🔧 Advanced Format (Multiple patterns per file)
 
 ```javascript
 const {
   createUpdateVersionPlugin,
 } = require("@clash-strategic/release-config");
 
+// Advanced format - multiple patterns per file
 const updateVersionPlugin = createUpdateVersionPlugin(
   [
     {
       path: "src/MyClass.php",
-      pattern: /(const VERSION = \').*?(\';)/,
-      replacement: "$1${version}$2",
-    },
-    {
-      path: "src/MyClass.php",
-      pattern: /(const BUILD_DATE = \').*?(\';)/,
-      replacement: "$1${date}$2",
+      patterns: [
+        {
+          regex: /(const VERSION = \').*?(\';)/,
+          replacement: "$1{version}$2",
+        },
+        {
+          regex: /(const BUILD_DATE = \').*?(\';)/,
+          replacement: "$1{datetime}$2",
+        },
+      ],
     },
   ],
   "iso"
-); // Date format: 'iso', 'locale', or custom
+);
 ```
 
-### Available Variables
+### 🎯 Real-world Example (PHP Class)
 
-- `{version}`: The new version (e.g., "1.2.3")
-- `{datetime}`: Current date and time in ISO UTC format (e.g., "2025-08-18T17:49:22.549Z")
+```javascript
+const updateVersionPlugin = createUpdateVersionPlugin([
+  {
+    path: "DeckAnalyzer.php",
+    patterns: [
+      {
+        regex: /(private string \$VERSION = \").*?(\";)/,
+        replacement: "$1{version}$2",
+      },
+      {
+        regex: /(private string \$DATETIME_VERSION = \").*?(\";)/,
+        replacement: "$1{datetime}$2",
+      },
+    ],
+  },
+]);
+```
 
-### Plugin Options
+### 🔤 Available Variables
+
+- **`{version}`** / **`${version}`**: The new version (e.g., "1.2.3")
+- **`{datetime}`** / **`${date}`**: Current date and time in ISO UTC format (e.g., "2025-08-18T17:49:22.549Z")
+
+### ⚙️ Plugin Options
 
 ```javascript
 createUpdateVersionPlugin(files, datetimeFormat);
 ```
 
-- `files`: Array of file configurations
-- `datetimeFormat`: Date format (default: 'iso')
+- **`files`**: Array of file configurations (supports both simple and advanced format)
+- **`datetimeFormat`**: Date format (default: 'iso')
   - `'iso'`: ISO 8601 UTC (default)
   - `'unix'`: Unix timestamp
   - `'custom'`: For future extensions
 
+### 📋 Format Comparison
+
+| Feature      | Simple Format                    | Advanced Format                                |
+| ------------ | -------------------------------- | ---------------------------------------------- |
+| **Use case** | Single pattern per file          | Multiple patterns per file                     |
+| **Syntax**   | `{ path, pattern, replacement }` | `{ path, patterns: [{ regex, replacement }] }` |
+| **Best for** | Most common scenarios            | Complex files with multiple version fields     |
+
 ## ✅ Configuration Validation
 
-This package includes a powerful validation function to check your semantic-release configuration and provide helpful feedback.
+This package includes a **powerful validation system** that not only checks your semantic-release configuration but also **simulates the execution** of custom plugins to ensure they work correctly with your actual files.
 
 ### 🔍 CLI Validation Tool
 
@@ -240,6 +282,37 @@ npm run validate-config path/to/config.js
 
 # Or use the CLI directly
 npx validate-release-config
+```
+
+### 🎯 Example Validation Output
+
+```bash
+🔍 Semantic Release Configuration Validator
+==================================================
+
+📋 Validating: ./release.config.js
+--------------------------------------------------
+✅ Configuration is VALID
+
+⚠️  WARNINGS:
+  1. update-version plugin #1, file #1, pattern #1: regex pattern does not match any content in the file
+
+💡 SUGGESTIONS:
+  1. update-version plugin #1, file #1: dry-run successful - 2 pattern(s) would match
+  2. Configuration structure is valid
+  3. NPM plugin detected - good for publishing packages
+  4. Git plugin detected - will commit release changes
+  5. GitHub plugin detected - will create GitHub releases
+
+📊 SUMMARY:
+  • Valid Structure: ✅
+  • Branches: 2
+  • Plugins: 7
+  • NPM Plugin: ✅
+  • Git Plugin: ✅
+  • GitHub Plugin: ✅
+
+🎉 Configuration validation completed successfully!
 ```
 
 ### 📝 Programmatic Validation
@@ -280,13 +353,55 @@ const result = validateConfig(config, {
 });
 ```
 
-### 📋 Validation Features
+### 🚀 Advanced Validation Features
+
+#### 🔍 **Dry-Run Simulation** (NEW!)
+
+The validator now **simulates the execution** of `update-version` plugins without modifying your files:
+
+- ✅ **Tests regex patterns** against actual file content
+- ✅ **Validates replacements** work correctly
+- ✅ **Detects missing files** before release
+- ✅ **Warns about non-matching patterns**
+- ✅ **Counts successful matches**
+
+#### 🛠️ **Smart Error Detection**
+
+- **Typo detection**: `pathss` → suggests `path`
+- **Property validation**: Ensures required fields are present
+- **Format validation**: Supports both simple and advanced plugin formats
+- **File existence**: Checks if target files exist
+
+#### 📋 **Comprehensive Validation**
 
 - **Structure validation** - Ensures required fields are present and correctly typed
 - **Plugin validation** - Checks for recommended plugins and configurations
 - **Branch validation** - Validates branch configurations
+- **Custom plugin validation** - Deep validation of update-version plugins
 - **Detailed feedback** - Provides errors, warnings, and suggestions
 - **Summary report** - Shows configuration overview and detected features
+
+### 🚨 Error Types Detected
+
+#### ❌ **Errors** (Configuration Invalid)
+
+- `missing required "path" property` - Missing required fields
+- `unknown property "pathss". Did you mean: path?` - Typos with suggestions
+- `target file not found: MyFile.php` - Missing target files
+- `regex error - Invalid regular expression` - Invalid regex patterns
+- `must have either "patterns" array or both "pattern" and "replacement" properties` - Invalid structure
+
+#### ⚠️ **Warnings** (Configuration Valid but Issues Found)
+
+- `regex pattern does not match any content in the file` - Pattern won't match anything
+- `pattern matches but replacement produces no changes` - Replacement doesn't change content
+- `replacement still contains unreplaced placeholders` - Unused placeholders like `{version}`
+
+#### 💡 **Suggestions** (Helpful Information)
+
+- `dry-run successful - 2 pattern(s) would match` - Successful validation
+- `Configuration structure is valid` - Structure is correct
+- `NPM plugin detected - good for publishing packages` - Plugin recommendations
 
 ## Configuration Options
 
