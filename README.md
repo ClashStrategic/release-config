@@ -1,8 +1,8 @@
 # @clash-strategic/release-config
 
-Shared semantic-release configuration for Clash Strategic repositories. This package provides a standardized configuration for automated versioning, changelog generation, and releases across all our projects.
+Shared semantic-release configuration for Clash Strategic repositories. This package provides a **simple and easy-to-use** configuration for automated versioning, changelog generation, and releases across all our projects.
 
-## Features
+## ✨ Features
 
 - 🚀 **Automated versioning** using semantic-release
 - 📝 **Automatic changelog generation**
@@ -10,8 +10,11 @@ Shared semantic-release configuration for Clash Strategic repositories. This pac
 - 🌿 **Multi-branch support** (main + beta prerelease)
 - 📦 **Flexible npm publishing** (can be disabled for internal packages)
 - ⚙️ **Customizable git assets and commit messages**
+- 🎯 **Simple convenience functions** for common use cases
+- 📋 **GitHub Actions workflow generation**
+- ✅ **Configuration validation** with detailed feedback and suggestions
 
-## Installation
+## 📦 Installation
 
 ```bash
 # Install from GitHub (recommended)
@@ -21,22 +24,43 @@ npm install --save-dev git+https://github.com/ClashStrategic/release-config.git
 npm install --save-dev semantic-release @semantic-release/commit-analyzer @semantic-release/release-notes-generator @semantic-release/npm @semantic-release/changelog @semantic-release/git @semantic-release/github
 ```
 
-## Quick Start
+## 🚀 Quick Start
 
-1. **Create a `release.config.js` file** in your project root:
+### ⚡ Simple Setup (Recommended)
+
+**For npm packages:**
 
 ```javascript
 // release.config.js
-const buildConfig = require("@clash-strategic/release-config");
+const createConfig = require("@clash-strategic/release-config");
 
-module.exports = buildConfig({
-  // Repository-specific options
-  npmPublish: false, // Set to true if you want to publish to npm
-  gitAssets: ["CHANGELOG.md", "package.json", "package-lock.json"],
-});
+module.exports = createConfig({ npmPublish: true });
 ```
 
-2. **Add the semantic-release script** to your `package.json`:
+**For non-npm projects:**
+
+```javascript
+// release.config.js
+const createConfig = require("@clash-strategic/release-config");
+
+module.exports = createConfig({ npmPublish: false });
+```
+
+**Generate GitHub Actions workflow:**
+
+```javascript
+// scripts/setup-workflow.js
+const { createGitHubWorkflow } = require("@clash-strategic/release-config");
+const fs = require("fs");
+
+const workflow = createGitHubWorkflow({ runTests: true });
+fs.mkdirSync(".github/workflows", { recursive: true });
+fs.writeFileSync(".github/workflows/release.yml", workflow);
+```
+
+### 📋 Complete Setup Steps
+
+1. **Add semantic-release script** to your `package.json`:
 
 ```json
 {
@@ -46,107 +70,134 @@ module.exports = buildConfig({
 }
 ```
 
-3. **Set up your CI/CD environment** with a GitHub token:
+2. **Set up GitHub token** in your CI/CD:
 
    - Create a [GitHub Personal Access Token](https://github.com/settings/tokens) with `repo` permissions
-   - Set it as `GITHUB_TOKEN` or `GH_TOKEN` environment variable in your CI/CD
+   - Set it as `GITHUB_TOKEN` environment variable
 
-4. **Generate GitHub Actions workflow** (optional but recommended):
-
-```bash
-# This will create .github/workflows/release.yml automatically
-npx setup-release-workflow
-
-# Or if you installed the package locally
-npm run setup-workflow
-```
-
-5. **Run semantic-release** in your CI/CD pipeline:
+3. **Run semantic-release** in your CI/CD pipeline:
 
 ```bash
 npm run semantic-release
 ```
 
-### Simple Configuration (Most Common)
+## 🎯 Usage Examples
 
-```javascript
-// release.config.js - For internal packages
-const buildConfig = require("@clash-strategic/release-config");
+### 🔧 Simple Configurations
 
-module.exports = buildConfig({
-  npmPublish: false,
-  gitAssets: ["CHANGELOG.md", "package.json", "package-lock.json"],
-});
-```
-
-### NPM Package Configuration
-
-```javascript
-// release.config.js - For packages published to npm
-const buildConfig = require("@clash-strategic/release-config");
-
-module.exports = buildConfig({
-  npmPublish: true,
-  gitAssets: ["CHANGELOG.md", "package.json", "package-lock.json"],
-});
-```
-
-### Custom Configuration
-
-```javascript
-// release.config.js - With custom options
-const buildConfig = require("@clash-strategic/release-config");
-
-module.exports = buildConfig({
-  npmPublish: false,
-  gitAssets: ["CHANGELOG.md", "package.json", "src/version.php"],
-  gitMessage:
-    "🚀 Release ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}",
-  extraPrepare: [["./scripts/custom-build.js"]],
-});
-```
-
-## Versatile update-version plugin
-
-This package includes a versatile plugin to update versions and dates in any file using configurable regex patterns.
+**Default export (classic way):**
 
 ```javascript
 // release.config.js
+const createConfig = require("@clash-strategic/release-config");
+
+module.exports = createConfig({ npmPublish: true });
+```
+
+**Named exports for specific functions:**
+
+```javascript
+// Using named exports
 const {
+  buildSemanticReleaseConfig,
+  createGitHubWorkflow,
+} = require("@clash-strategic/release-config");
+
+// For npm packages
+const config = buildSemanticReleaseConfig({ npmPublish: true });
+
+// For non-npm projects
+const config = buildSemanticReleaseConfig({ npmPublish: false });
+
+// GitHub Actions workflow
+const workflow = createGitHubWorkflow({ runTests: true });
+```
+
+### 🚀 Advanced Configurations
+
+**Custom branches and assets:**
+
+```javascript
+const createConfig = require("@clash-strategic/release-config");
+
+module.exports = createConfig({
+  npmPublish: true,
+  branches: ["main", "develop"],
+  gitAssets: ["CHANGELOG.md", "package.json", "src/version.php"],
+  gitMessage:
+    "🚀 Release ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}",
+});
+```
+
+**With custom build steps:**
+
+```javascript
+const {
+  buildSemanticReleaseConfig,
+} = require("@clash-strategic/release-config");
+
+module.exports = buildSemanticReleaseConfig({
+  npmPublish: false,
+  extraPrepare: [["@semantic-release/exec", { prepareCmd: "npm run build" }]],
+  gitAssets: ["CHANGELOG.md", "package.json", "dist/"],
+});
+```
+
+## 🔄 Version Update Plugin
+
+This package includes a versatile plugin to update versions and dates in any file using configurable patterns.
+
+### 📝 Simple Usage
+
+```javascript
+const {
+  buildSemanticReleaseConfig,
   createUpdateVersionPlugin,
 } = require("@clash-strategic/release-config");
-const buildConfig = require("@clash-strategic/release-config");
 
-// Configure the plugin to update specific files
-const updateVersionPlugin = createUpdateVersionPlugin([
+// Update version in custom files
+const versionPlugin = createUpdateVersionPlugin([
   {
-    path: "src/MyClass.php",
-    patterns: [
-      {
-        regex: /(const VERSION = \').*?(\';)/,
-        replacement: "$1{version}$2",
-      },
-      {
-        regex: /(const BUILD_DATE = \').*?(\';)/,
-        replacement: "$1{datetime}$2",
-      },
-    ],
+    path: "src/version.js",
+    pattern: "version-regex-pattern",
+    replacement: 'export const VERSION = "${version}";',
   },
   {
-    path: "package.json",
-    patterns: [
-      {
-        regex: /("version":\s*").*?(")/,
-        replacement: "$1{version}$2",
-      },
-    ],
+    path: "VERSION.txt",
+    pattern: "any-pattern",
+    replacement: "${version}",
   },
 ]);
 
-module.exports = buildConfig({
-  extraPrepare: [updateVersionPlugin],
-  gitAssets: ["CHANGELOG.md", "package.json", "src/MyClass.php"],
+module.exports = buildSemanticReleaseConfig({
+  npmPublish: true,
+  extraPrepare: [versionPlugin],
+  gitAssets: ["CHANGELOG.md", "package.json", "src/version.js", "VERSION.txt"],
 });
+```
+
+### 🔧 Advanced Pattern Configuration
+
+```javascript
+const {
+  createUpdateVersionPlugin,
+} = require("@clash-strategic/release-config");
+
+const updateVersionPlugin = createUpdateVersionPlugin(
+  [
+    {
+      path: "src/MyClass.php",
+      pattern: /(const VERSION = \').*?(\';)/,
+      replacement: "$1${version}$2",
+    },
+    {
+      path: "src/MyClass.php",
+      pattern: /(const BUILD_DATE = \').*?(\';)/,
+      replacement: "$1${date}$2",
+    },
+  ],
+  "iso"
+); // Date format: 'iso', 'locale', or custom
 ```
 
 ### Available Variables
@@ -165,6 +216,69 @@ createUpdateVersionPlugin(files, datetimeFormat);
   - `'iso'`: ISO 8601 UTC (default)
   - `'unix'`: Unix timestamp
   - `'custom'`: For future extensions
+
+## ✅ Configuration Validation
+
+This package includes a powerful validation function to check your semantic-release configuration and provide helpful feedback.
+
+### 🔍 CLI Validation Tool
+
+```bash
+# Validate your current release.config.js
+npm run validate-config
+
+# Validate a specific config file
+npm run validate-config path/to/config.js
+
+# Or use the CLI directly
+npx validate-release-config
+```
+
+### 📝 Programmatic Validation
+
+```javascript
+const { validateConfig } = require("@clash-strategic/release-config");
+
+// Validate a configuration object
+const config = {
+  branches: ["main"],
+  plugins: [
+    "@semantic-release/commit-analyzer",
+    "@semantic-release/release-notes-generator",
+    "@semantic-release/npm",
+    "@semantic-release/github",
+  ],
+};
+
+const result = validateConfig(config);
+
+if (result.isValid) {
+  console.log("✅ Configuration is valid!");
+} else {
+  console.log("❌ Configuration errors:", result.errors);
+  console.log("⚠️ Warnings:", result.warnings);
+}
+
+console.log("📊 Summary:", result.summary);
+```
+
+### 🔧 Validation Options
+
+```javascript
+const result = validateConfig(config, {
+  strict: false, // Treat warnings as errors
+  checkPlugins: true, // Validate plugin configurations
+  verbose: true, // Include detailed explanations
+});
+```
+
+### 📋 Validation Features
+
+- **Structure validation** - Ensures required fields are present and correctly typed
+- **Plugin validation** - Checks for recommended plugins and configurations
+- **Branch validation** - Validates branch configurations
+- **Detailed feedback** - Provides errors, warnings, and suggestions
+- **Summary report** - Shows configuration overview and detected features
 
 ## Configuration Options
 
