@@ -259,6 +259,97 @@ function validateConfig(config, options = {}) {
         result.suggestions.push('Consider explicitly setting npmPublish option for @semantic-release/npm plugin');
       }
     }
+
+    // Validate custom update-version plugins
+    const updateVersionPlugins = config.plugins.filter(p =>
+      Array.isArray(p) && p[0] && p[0].includes('update-version.js')
+    );
+
+    updateVersionPlugins.forEach((plugin, index) => {
+      if (plugin[1] && plugin[1].files) {
+        const pluginConfig = plugin[1];
+        const files = pluginConfig.files;
+
+        if (!Array.isArray(files)) {
+          result.errors.push(`update-version plugin #${index + 1}: "files" must be an array`);
+          result.isValid = false;
+          return;
+        }
+
+        files.forEach((fileConfig, fileIndex) => {
+          const fileNum = fileIndex + 1;
+          const pluginNum = index + 1;
+
+          // Check required path
+          if (!fileConfig.path) {
+            result.errors.push(`update-version plugin #${pluginNum}, file #${fileNum}: missing required "path" property`);
+            result.isValid = false;
+          }
+
+          // Check for typos in property names
+          const validProps = ['path', 'pattern', 'replacement', 'patterns'];
+          const actualProps = Object.keys(fileConfig);
+
+          actualProps.forEach(prop => {
+            if (!validProps.includes(prop)) {
+              // Check for common typos
+              const suggestions = [];
+              if (prop.includes('path')) suggestions.push('path');
+              if (prop.includes('pattern')) suggestions.push('pattern', 'patterns');
+              if (prop.includes('replacement')) suggestions.push('replacement');
+
+              const suggestion = suggestions.length > 0 ? ` Did you mean: ${suggestions.join(', ')}?` : '';
+              result.errors.push(`update-version plugin #${pluginNum}, file #${fileNum}: unknown property "${prop}".${suggestion}`);
+              result.isValid = false;
+            }
+          });
+
+          // Validate format requirements
+          const hasPatterns = fileConfig.patterns && Array.isArray(fileConfig.patterns);
+          const hasSimpleFormat = fileConfig.pattern && fileConfig.replacement;
+
+          if (!hasPatterns && !hasSimpleFormat) {
+            result.errors.push(`update-version plugin #${pluginNum}, file #${fileNum}: must have either "patterns" array or both "pattern" and "replacement" properties`);
+            result.isValid = false;
+          }
+
+          // Validate patterns array if present
+          if (hasPatterns) {
+            fileConfig.patterns.forEach((pattern, patternIndex) => {
+              const patternNum = patternIndex + 1;
+              if (!pattern.regex) {
+                result.errors.push(`update-version plugin #${pluginNum}, file #${fileNum}, pattern #${patternNum}: missing required "regex" property`);
+                result.isValid = false;
+              }
+              if (!pattern.replacement) {
+                result.errors.push(`update-version plugin #${pluginNum}, file #${fileNum}, pattern #${patternNum}: missing required "replacement" property`);
+                result.isValid = false;
+              }
+            });
+          }
+
+          // Perform dry-run validation of the actual file processing
+          if (fileConfig.path && (hasPatterns || hasSimpleFormat)) {
+            try {
+              const dryRunResult = validateUpdateVersionDryRun(fileConfig, pluginNum, fileNum);
+
+              // Always add errors and warnings from dry-run
+              result.errors.push(...dryRunResult.errors);
+              result.warnings.push(...dryRunResult.warnings);
+
+              if (!dryRunResult.success) {
+                result.isValid = false;
+              } else {
+                result.suggestions.push(`update-version plugin #${pluginNum}, file #${fileNum}: dry-run successful - ${dryRunResult.replacements} pattern(s) would match`);
+              }
+            } catch (error) {
+              result.errors.push(`update-version plugin #${pluginNum}, file #${fileNum}: dry-run failed - ${error.message}`);
+              result.isValid = false;
+            }
+          }
+        });
+      }
+    });
   }
 
   // Generate summary
@@ -297,6 +388,118 @@ function validateConfig(config, options = {}) {
   if (strict && result.warnings.length > 0) {
     result.isValid = false;
   }
+
+  return result;
+}
+
+/**
+ * Performs a dry-run validation of update-version plugin configuration.
+ * Tests if the patterns would actually match and replace content in the target file.
+ *
+ * @param {Object} fileConfig - File configuration object
+ * @param {number} pluginNum - Plugin number for error reporting
+ * @param {number} fileNum - File number for error reporting
+ * @returns {Object} Validation result with success, errors, warnings, and replacements count
+ */
+function validateUpdateVersionDryRun(fileConfig, pluginNum, fileNum) {
+  const fs = require('fs');
+  const path = require('path');
+
+  const result = {
+    success: true,
+    errors: [],
+    warnings: [],
+    replacements: 0
+  };
+
+  const { path: filePath, patterns, pattern, replacement } = fileConfig;
+
+  // Resolve file path
+  const fullPath = path.resolve(process.cwd(), filePath);
+
+  // Check if file exists
+  if (!fs.existsSync(fullPath)) {
+    result.errors.push(`update-version plugin #${pluginNum}, file #${fileNum}: target file not found: ${filePath}`);
+    result.success = false;
+    return result;
+  }
+
+  // Read file content
+  let content;
+  try {
+    content = fs.readFileSync(fullPath, 'utf8');
+  } catch (error) {
+    result.errors.push(`update-version plugin #${pluginNum}, file #${fileNum}: cannot read file ${filePath}: ${error.message}`);
+    result.success = false;
+    return result;
+  }
+
+  // Prepare patterns to test
+  let patternsToTest = [];
+
+  if (patterns && Array.isArray(patterns)) {
+    // Advanced format with patterns array
+    patternsToTest = patterns;
+  } else if (pattern && replacement) {
+    // Simple format - convert to advanced format
+    patternsToTest = [{
+      regex: pattern,
+      replacement: replacement
+    }];
+  }
+
+  // Test each pattern
+  patternsToTest.forEach((patternObj, patternIndex) => {
+    const { regex, replacement: repl } = patternObj;
+    const patternNum = patternIndex + 1;
+
+    try {
+      // Convert string regex to RegExp if needed
+      const regexObj = typeof regex === 'string' ? new RegExp(regex, 'g') : regex;
+
+      // Test if regex is valid
+      if (!(regexObj instanceof RegExp)) {
+        result.errors.push(`update-version plugin #${pluginNum}, file #${fileNum}, pattern #${patternNum}: invalid regex`);
+        result.success = false;
+        return;
+      }
+
+      // Create test replacement with mock values
+      const testVersion = '1.2.3';
+      const testDatetime = '2024-01-01T12:00:00.000Z';
+
+      const finalReplacement = repl
+        .replace(/\{version\}/g, testVersion)
+        .replace(/\{datetime\}/g, testDatetime)
+        .replace(/\$\{version\}/g, testVersion)
+        .replace(/\$\{date\}/g, testDatetime);
+
+      // Test if pattern matches content
+      const matches = content.match(regexObj);
+
+      if (!matches || matches.length === 0) {
+        result.warnings.push(`update-version plugin #${pluginNum}, file #${fileNum}, pattern #${patternNum}: regex pattern does not match any content in the file`);
+      } else {
+        // Test replacement (dry-run)
+        const testContent = content.replace(regexObj, finalReplacement);
+
+        if (testContent === content) {
+          result.warnings.push(`update-version plugin #${pluginNum}, file #${fileNum}, pattern #${patternNum}: pattern matches but replacement produces no changes`);
+        } else {
+          result.replacements++;
+
+          // Validate that the replacement looks reasonable
+          if (finalReplacement.includes('{version}') || finalReplacement.includes('{datetime}')) {
+            result.warnings.push(`update-version plugin #${pluginNum}, file #${fileNum}, pattern #${patternNum}: replacement still contains unreplaced placeholders`);
+          }
+        }
+      }
+
+    } catch (error) {
+      result.errors.push(`update-version plugin #${pluginNum}, file #${fileNum}, pattern #${patternNum}: regex error - ${error.message}`);
+      result.success = false;
+    }
+  });
 
   return result;
 }
