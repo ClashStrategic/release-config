@@ -1,3 +1,12 @@
+# [0.3.0](https://github.com/ClashStrategic/release-config/compare/v0.2.0...v0.3.0) (2025-08-20)
+
+
+### Features
+
+* add configuration validation system for semantic-release configs ([6cf4a8d](https://github.com/ClashStrategic/release-config/commit/6cf4a8d5a7de9a3b25871ab7498c21416999ab98))
+* implement dual export pattern for enhanced API flexibility ([faf4182](https://github.com/ClashStrategic/release-config/commit/faf4182c98ac4fd14e3749e37510fa19a8abe74e))
+* **workflow:** add automatic project configuration detection ([a32d40c](https://github.com/ClashStrategic/release-config/commit/a32d40c26c18fe41848efd9d89407083affe503a))
+
 # [0.2.0](https://github.com/ClashStrategic/release-config/compare/v0.1.0...v0.2.0) (2025-08-19)
 
 
