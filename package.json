@@ -12,6 +12,7 @@
     "index.js",
     "update-version.js",
     "setup-workflow.js",
+    "validate-config.js",
     "README.md"
   ],
   "keywords": [
@@ -25,10 +26,12 @@
   ],
   "scripts": {
     "semantic-release": "semantic-release",
-    "setup-workflow": "node setup-workflow.js"
+    "setup-workflow": "node setup-workflow.js",
+    "validate-config": "node validate-config.js"
   },
   "bin": {
-    "setup-release-workflow": "./setup-workflow.js"
+    "setup-release-workflow": "./setup-workflow.js",
+    "validate-release-config": "./validate-config.js"
   },
   "devDependencies": {
     "@clash-strategic/release-config": "git+https://ClashStrategic@github.com/ClashStrategic/release-config.git#v0.2.0",

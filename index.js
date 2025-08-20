@@ -116,6 +116,162 @@ function createUpdateVersionPlugin(files, datetimeFormat = 'iso') {
 }
 
 /**
+ * Validates a semantic-release configuration object and provides helpful feedback.
+ *
+ * This function checks if a semantic-release configuration is valid and follows
+ * best practices. It returns detailed information about the configuration status.
+ *
+ * @param {Object|string} config - The semantic-release configuration object or path to config file
+ * @param {Object} [options={}] - Validation options
+ * @param {boolean} [options.strict=false] - Whether to use strict validation (fails on warnings)
+ * @param {boolean} [options.checkPlugins=true] - Whether to validate plugin configurations
+ * @param {boolean} [options.verbose=false] - Whether to include detailed explanations
+ *
+ * @returns {Object} Validation result object
+ * @returns {boolean} returns.isValid - Whether the configuration is valid
+ * @returns {Array<string>} returns.errors - Array of error messages
+ * @returns {Array<string>} returns.warnings - Array of warning messages
+ * @returns {Array<string>} returns.suggestions - Array of improvement suggestions
+ * @returns {Object} returns.summary - Summary of configuration analysis
+ *
+ * @example
+ * // Validate current configuration
+ * const result = validateConfig(require('./release.config.js'));
+ * if (!result.isValid) {
+ *   console.log('Errors:', result.errors);
+ * }
+ *
+ * @example
+ * // Validate with strict mode
+ * const result = validateConfig(config, { strict: true, verbose: true });
+ * console.log('Summary:', result.summary);
+ */
+function validateConfig(config, options = {}) {
+  const opts = options || {};
+  const {
+    strict = false,
+    checkPlugins = true,
+    verbose = false
+  } = opts;
+
+  const result = {
+    isValid: true,
+    errors: [],
+    warnings: [],
+    suggestions: [],
+    summary: {}
+  };
+
+  // Handle string input (file path)
+  if (typeof config === 'string') {
+    try {
+      config = require(path.resolve(config));
+    } catch (error) {
+      result.errors.push(`Failed to load config file: ${error.message}`);
+      result.isValid = false;
+      return result;
+    }
+  }
+
+  // Check if config is an object
+  if (!config || typeof config !== 'object') {
+    result.errors.push('Configuration must be an object');
+    result.isValid = false;
+    return result;
+  }
+
+  // Validate branches
+  if (!config.branches) {
+    result.warnings.push('No branches specified, semantic-release will use defaults');
+  } else if (!Array.isArray(config.branches)) {
+    result.errors.push('Branches must be an array');
+    result.isValid = false;
+  } else if (config.branches.length === 0) {
+    result.errors.push('At least one branch must be specified');
+    result.isValid = false;
+  }
+
+  // Validate plugins
+  if (!config.plugins) {
+    result.errors.push('No plugins specified');
+    result.isValid = false;
+  } else if (!Array.isArray(config.plugins)) {
+    result.errors.push('Plugins must be an array');
+    result.isValid = false;
+  } else if (config.plugins.length === 0) {
+    result.errors.push('At least one plugin must be specified');
+    result.isValid = false;
+  }
+
+  // Check for required plugins if plugins validation is enabled
+  if (checkPlugins && config.plugins && Array.isArray(config.plugins)) {
+    const pluginNames = config.plugins.map(p => Array.isArray(p) ? p[0] : p);
+
+    const requiredPlugins = [
+      '@semantic-release/commit-analyzer',
+      '@semantic-release/release-notes-generator'
+    ];
+
+    requiredPlugins.forEach(required => {
+      if (!pluginNames.includes(required)) {
+        result.warnings.push(`Missing recommended plugin: ${required}`);
+      }
+    });
+
+    // Check for npm plugin configuration
+    const npmPlugin = config.plugins.find(p =>
+      (Array.isArray(p) && p[0] === '@semantic-release/npm') || p === '@semantic-release/npm'
+    );
+
+    if (npmPlugin && Array.isArray(npmPlugin) && npmPlugin[1]) {
+      const npmConfig = npmPlugin[1];
+      if (npmConfig.npmPublish === undefined) {
+        result.suggestions.push('Consider explicitly setting npmPublish option for @semantic-release/npm plugin');
+      }
+    }
+  }
+
+  // Generate summary
+  result.summary = {
+    hasValidStructure: result.errors.length === 0,
+    branchCount: config.branches && Array.isArray(config.branches) ? config.branches.length : 0,
+    pluginCount: config.plugins && Array.isArray(config.plugins) ? config.plugins.length : 0,
+    hasNpmPlugin: config.plugins && Array.isArray(config.plugins) ? config.plugins.some(p =>
+      (Array.isArray(p) && p[0] === '@semantic-release/npm') || p === '@semantic-release/npm'
+    ) : false,
+    hasGitPlugin: config.plugins && Array.isArray(config.plugins) ? config.plugins.some(p =>
+      (Array.isArray(p) && p[0] === '@semantic-release/git') || p === '@semantic-release/git'
+    ) : false,
+    hasGitHubPlugin: config.plugins && Array.isArray(config.plugins) ? config.plugins.some(p =>
+      (Array.isArray(p) && p[0] === '@semantic-release/github') || p === '@semantic-release/github'
+    ) : false
+  };
+
+  // Add verbose explanations if requested
+  if (verbose) {
+    if (result.summary.hasValidStructure) {
+      result.suggestions.push('Configuration structure is valid');
+    }
+    if (result.summary.hasNpmPlugin) {
+      result.suggestions.push('NPM plugin detected - good for publishing packages');
+    }
+    if (result.summary.hasGitPlugin) {
+      result.suggestions.push('Git plugin detected - will commit release changes');
+    }
+    if (result.summary.hasGitHubPlugin) {
+      result.suggestions.push('GitHub plugin detected - will create GitHub releases');
+    }
+  }
+
+  // Apply strict mode
+  if (strict && result.warnings.length > 0) {
+    result.isValid = false;
+  }
+
+  return result;
+}
+
+/**
  * Creates a complete GitHub Actions workflow for semantic-release.
  *
  * This function generates a ready-to-use GitHub Actions workflow YAML content
@@ -273,6 +429,7 @@ module.exports = buildSemanticReleaseConfig;
 module.exports.buildSemanticReleaseConfig = buildSemanticReleaseConfig;
 module.exports.createUpdateVersionPlugin = createUpdateVersionPlugin;
 module.exports.createGitHubWorkflow = createGitHubWorkflow;
+module.exports.validateConfig = validateConfig;
 
 /**
  * @fileoverview Usage Examples:
@@ -287,7 +444,7 @@ module.exports.createGitHubWorkflow = createGitHubWorkflow;
  * const config = createConfig({ npmPublish: false });
  *
  * // NAMED EXPORTS - For specific functions
- * const { buildSemanticReleaseConfig, createGitHubWorkflow } = require('shared-semantic-config');
+ * const { buildSemanticReleaseConfig, createGitHubWorkflow, validateConfig } = require('shared-semantic-config');
  *
  * const config = buildSemanticReleaseConfig({
  *   branches: ['main', 'develop'],
@@ -299,11 +456,20 @@ module.exports.createGitHubWorkflow = createGitHubWorkflow;
  *   buildCommand: 'npm run build'
  * });
  *
+ * // VALIDATE CONFIGURATION - Check if config is valid
+ * const validation = validateConfig(config);
+ * if (!validation.isValid) {
+ *   console.log('Configuration errors:', validation.errors);
+ *   console.log('Warnings:', validation.warnings);
+ * }
+ * console.log('Configuration summary:', validation.summary);
+ *
  * // COMPLETE SETUP - With version updates
  * const {
  *   buildSemanticReleaseConfig,
  *   createUpdateVersionPlugin,
- *   createGitHubWorkflow
+ *   createGitHubWorkflow,
+ *   validateConfig
  * } = require('shared-semantic-config');
  *
  * const versionPlugin = createUpdateVersionPlugin([
@@ -316,6 +482,12 @@ module.exports.createGitHubWorkflow = createGitHubWorkflow;
  *   extraPrepare: [versionPlugin],
  *   gitAssets: ['CHANGELOG.md', 'package.json', 'package-lock.json', 'VERSION.txt', 'src/version.js']
  * });
+ *
+ * // Validate the configuration before using it
+ * const result = validateConfig(config, { verbose: true });
+ * if (result.isValid) {
+ *   console.log('✅ Configuration is valid!');
+ * }
  *
  * const workflow = createGitHubWorkflow({
  *   name: 'CI/CD Pipeline',
