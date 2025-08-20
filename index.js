@@ -72,38 +72,68 @@ function buildSemanticReleaseConfig(options = {}) {
  * This function generates a semantic-release plugin that can update version numbers
  * and timestamps in any text-based files during the release process.
  *
+ * Supports two formats:
+ * 1. Simple format: { path, pattern, replacement } - for single pattern per file
+ * 2. Advanced format: { path, patterns: [{ regex, replacement }] } - for multiple patterns per file
+ *
  * @param {Array<Object>} files - Array of file configurations to update
  * @param {string} files[].path - Path to the file to update
- * @param {string} files[].pattern - Regex pattern to find the version/date to replace
- * @param {string} files[].replacement - Replacement string (supports ${version} and ${date} placeholders)
- * @param {string} [datetimeFormat='iso'] - Format for date replacement ('iso', 'locale', or custom format)
+ *
+ * Simple format (single pattern per file):
+ * @param {string|RegExp} [files[].pattern] - Regex pattern to find the version/date to replace
+ * @param {string} [files[].replacement] - Replacement string (supports {version}, {datetime}, ${version}, ${date} placeholders)
+ *
+ * Advanced format (multiple patterns per file):
+ * @param {Array<Object>} [files[].patterns] - Array of pattern objects to apply
+ * @param {string|RegExp} files[].patterns[].regex - Regex pattern to find content to replace
+ * @param {string} files[].patterns[].replacement - Replacement string (supports {version}, {datetime}, ${version}, ${date} placeholders)
+ *
+ * @param {string} [datetimeFormat='iso'] - Format for date replacement ('iso', 'unix', or custom format)
  *
  * @returns {Array} Plugin configuration array for semantic-release
  *
  * @example
- * // Update version in a Python __init__.py file
+ * // Simple format - Update version in a Python __init__.py file
  * const versionPlugin = createUpdateVersionPlugin([
  *   {
  *     path: 'src/__init__.py',
- *     pattern: 'version-regex-pattern',
+ *     pattern: /__version__ = ".*?"/,
  *     replacement: '__version__ = "${version}"'
  *   }
  * ]);
  *
  * @example
- * // Update multiple files with version and date
+ * // Simple format - Update multiple files with version and date
  * const versionPlugin = createUpdateVersionPlugin([
  *   {
  *     path: 'VERSION.txt',
- *     pattern: 'version-pattern',
+ *     pattern: /\d+\.\d+\.\d+/,
  *     replacement: '${version}'
  *   },
  *   {
  *     path: 'RELEASE_DATE.txt',
- *     pattern: 'date-pattern',
- *     replacement: '${date}'
+ *     pattern: /\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z/,
+ *     replacement: '{datetime}'
  *   }
- * ], 'locale');
+ * ], 'iso');
+ *
+ * @example
+ * // Advanced format - Multiple patterns per file (like PHP class)
+ * const versionPlugin = createUpdateVersionPlugin([
+ *   {
+ *     path: 'DeckAnalyzer.php',
+ *     patterns: [
+ *       {
+ *         regex: /(private string \$VERSION = \").*?(\";)/,
+ *         replacement: '$1{version}$2'
+ *       },
+ *       {
+ *         regex: /(private string \$DATETIME_VERSION = \").*?(\";)/,
+ *         replacement: '$1{datetime}$2'
+ *       }
+ *     ]
+ *   }
+ * ]);
  */
 function createUpdateVersionPlugin(files, datetimeFormat = 'iso') {
   return [

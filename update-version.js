@@ -9,11 +9,11 @@ module.exports = {
   prepare: async (pluginConfig, context) => {
     const { nextRelease, logger, cwd } = context;
     const version = nextRelease.version;
-    
+
     // Default datetime format (ISO UTC)
     const datetimeFormat = pluginConfig.datetimeFormat || 'iso';
     const datetime = getFormattedDatetime(datetimeFormat);
-    
+
     // Validate configuration
     if (!pluginConfig.files || !Array.isArray(pluginConfig.files)) {
       throw new Error('update-version plugin requires "files" array in configuration');
@@ -42,18 +42,32 @@ module.exports = {
 };
 
 async function updateFile(fileConfig, version, datetime, cwd, logger) {
-  const { path: filePath, patterns } = fileConfig;
-  
+  const { path: filePath, patterns, pattern, replacement } = fileConfig;
+
   if (!filePath) {
     throw new Error('File configuration must include "path"');
   }
-  
-  if (!patterns || !Array.isArray(patterns)) {
-    throw new Error(`File ${filePath} must include "patterns" array`);
+
+  // Support both formats:
+  // 1. New format: { path, patterns: [{ regex, replacement }] }
+  // 2. Simple format: { path, pattern, replacement } (from JSDoc)
+  let patternsToProcess = [];
+
+  if (patterns && Array.isArray(patterns)) {
+    // New format with patterns array
+    patternsToProcess = patterns;
+  } else if (pattern && replacement) {
+    // Simple format from JSDoc - convert to new format
+    patternsToProcess = [{
+      regex: pattern,
+      replacement: replacement
+    }];
+  } else {
+    throw new Error(`File ${filePath} must include either "patterns" array or "pattern" and "replacement" properties`);
   }
 
   const fullPath = path.resolve(cwd || process.cwd(), filePath);
-  
+
   // Check if file exists
   if (!fs.existsSync(fullPath)) {
     throw new Error(`File not found: ${fullPath}`);
@@ -62,24 +76,27 @@ async function updateFile(fileConfig, version, datetime, cwd, logger) {
   let content = fs.readFileSync(fullPath, 'utf8');
   let replacements = 0;
 
-  for (const pattern of patterns) {
-    const { regex, replacement } = pattern;
-    
-    if (!regex || !replacement) {
+  for (const patternObj of patternsToProcess) {
+    const { regex, replacement: repl } = patternObj;
+
+    if (!regex || !repl) {
       throw new Error(`Pattern must include both "regex" and "replacement" for file ${filePath}`);
     }
 
     // Convert string regex to RegExp if needed
-    const regexObj = typeof regex === 'string' ? new RegExp(regex) : regex;
-    
+    const regexObj = typeof regex === 'string' ? new RegExp(regex, 'g') : regex;
+
     // Replace variables in replacement string
-    const finalReplacement = replacement
+    const finalReplacement = repl
       .replace(/\{version\}/g, version)
-      .replace(/\{datetime\}/g, datetime);
+      .replace(/\{datetime\}/g, datetime)
+      // Also support ${version} and ${date} for backward compatibility
+      .replace(/\$\{version\}/g, version)
+      .replace(/\$\{date\}/g, datetime);
 
     const originalContent = content;
     content = content.replace(regexObj, finalReplacement);
-    
+
     if (content !== originalContent) {
       replacements++;
     } else {
@@ -88,7 +105,7 @@ async function updateFile(fileConfig, version, datetime, cwd, logger) {
   }
 
   fs.writeFileSync(fullPath, content, 'utf8');
-  
+
   return {
     path: filePath,
     replacements
@@ -97,7 +114,7 @@ async function updateFile(fileConfig, version, datetime, cwd, logger) {
 
 function getFormattedDatetime(format) {
   const now = new Date();
-  
+
   switch (format) {
     case 'iso':
     default:
