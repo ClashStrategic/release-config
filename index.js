@@ -266,7 +266,11 @@ ${steps.join('\n')}`;
   return workflow;
 }
 
+// Export the main function as default export for simple usage
 module.exports = buildSemanticReleaseConfig;
+
+// Export all functions for flexibility
+module.exports.buildSemanticReleaseConfig = buildSemanticReleaseConfig;
 module.exports.createUpdateVersionPlugin = createUpdateVersionPlugin;
 module.exports.createGitHubWorkflow = createGitHubWorkflow;
 
