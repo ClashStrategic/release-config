@@ -1,3 +1,11 @@
+# [0.4.0](https://github.com/ClashStrategic/release-config/compare/v0.3.0...v0.4.0) (2025-08-20)
+
+
+### Features
+
+* **api:** add simple format support for file configuration ([93e1d6c](https://github.com/ClashStrategic/release-config/commit/93e1d6c517d9b14f965a9ec915857a6f0f3a15d8))
+* **config:** add comprehensive validation for update-version plugins ([04cf70d](https://github.com/ClashStrategic/release-config/commit/04cf70df584af2e50aeb3688d93d9a80b6f9e36a))
+
 # [0.3.0](https://github.com/ClashStrategic/release-config/compare/v0.2.0...v0.3.0) (2025-08-20)
 
 
