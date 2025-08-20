@@ -46,14 +46,22 @@ const createConfig = require("@clash-strategic/release-config");
 module.exports = createConfig({ npmPublish: false });
 ```
 
-**Generate GitHub Actions workflow:**
+**Generate GitHub Actions workflow (auto-detects your configuration):**
+
+```bash
+# Automatically detects your project configuration and generates workflow
+npx setup-release-workflow
+```
+
+**Or programmatically:**
 
 ```javascript
 // scripts/setup-workflow.js
-const { createGitHubWorkflow } = require("@clash-strategic/release-config");
+const { createSmartWorkflow } = require("@clash-strategic/release-config");
 const fs = require("fs");
 
-const workflow = createGitHubWorkflow({ runTests: true });
+// Auto-detects branches, tests, build commands, Node.js version, etc.
+const workflow = createSmartWorkflow();
 fs.mkdirSync(".github/workflows", { recursive: true });
 fs.writeFileSync(".github/workflows/release.yml", workflow);
 ```
@@ -312,29 +320,61 @@ node test-update-version.js
 
 # Test semantic-release in dry-run mode (requires GITHUB_TOKEN)
 npm run semantic-release -- --dry-run
+
+# Test workflow generation
+node -e "const {createBasicWorkflow} = require('./index.js'); console.log(createBasicWorkflow());"
 ```
 
-## Automatic Workflow Generation
+## 🤖 Smart Workflow Generation
 
-This package includes a convenient script to automatically generate GitHub Actions workflows:
+This package includes intelligent workflow generation that automatically detects your project configuration:
 
-### Basic Usage
+### ⚡ Quick Setup (Recommended)
 
 ```bash
-# Generate a basic workflow with defaults
+# Automatically detects and generates workflow for your project
 npx setup-release-workflow
 ```
 
-### Programmatic Usage
+**What it detects:**
+
+- 🌿 Release branches from your semantic-release config
+- 🧪 Test commands and whether to run tests
+- 🏗️ Build commands if available
+- 📦 Node.js version from package.json engines
+- 🔧 Additional scripts like lint, typecheck, etc.
+- 📋 Whether it's an npm package or not
+
+### 🎯 Smart Programmatic Usage
 
 ```javascript
 const {
-  createGitHubWorkflow,
-  setupWorkflow,
+  createSmartWorkflow,
+  detectUserConfiguration,
 } = require("@clash-strategic/release-config");
 
-// Generate workflow content only
+// Auto-detect everything and generate workflow
+const workflow = createSmartWorkflow();
+
+// Or detect configuration first, then customize
+const config = detectUserConfiguration();
+console.log("Detected:", config);
+
+const workflow = createSmartWorkflow({
+  name: "Custom Release Pipeline",
+  // Override specific settings while keeping smart defaults
+  runTests: true,
+});
+```
+
+### 🔧 Manual Configuration (Advanced)
+
+```javascript
+const { createGitHubWorkflow } = require("@clash-strategic/release-config");
+
+// Disable auto-detection and specify everything manually
 const workflowContent = createGitHubWorkflow({
+  autoDetect: false,
   name: "Release",
   branches: ["main", "develop"],
   nodeVersion: "18",
