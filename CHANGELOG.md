@@ -1,3 +1,10 @@
+# [0.5.0](https://github.com/ClashStrategic/release-config/compare/v0.4.0...v0.5.0) (2025-08-21)
+
+
+### Features
+
+* **deps:** bundle semantic-release plugins as dependencies ([c6144d7](https://github.com/ClashStrategic/release-config/commit/c6144d743369b5ea27e367baecd69d75bdd24207))
+
 # [0.4.0](https://github.com/ClashStrategic/release-config/compare/v0.3.0...v0.4.0) (2025-08-20)
 
 
