@@ -33,8 +33,7 @@
     "setup-release-workflow": "./setup-workflow.js",
     "validate-release-config": "./validate-config.js"
   },
-  "devDependencies": {
-    "@clash-strategic/release-config": "git+https://ClashStrategic@github.com/ClashStrategic/release-config.git#v0.2.0",
+  "dependencies": {
     "@semantic-release/changelog": "^6.0.3",
     "@semantic-release/commit-analyzer": "^13.0.1",
     "@semantic-release/git": "^10.0.1",
@@ -42,5 +41,8 @@
     "@semantic-release/npm": "^12.0.2",
     "@semantic-release/release-notes-generator": "^14.0.3",
     "semantic-release": "^24.2.7"
+  },
+  "devDependencies": {
+    "@clash-strategic/release-config": "git+https://ClashStrategic@github.com/ClashStrategic/release-config.git#v0.2.0"
   }
 }
