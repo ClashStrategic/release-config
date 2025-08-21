@@ -2,14 +2,6 @@
 
 Shared semantic-release configuration for Clash Strategic repositories. This package provides a **simple and easy-to-use** configuration for automated versioning, changelog generation, and releases across all our projects.
 
-## 🆕 What's New in v0.4.0
-
-- 🔍 **Advanced Validation with Dry-Run** - The validator now simulates plugin execution without modifying files
-- 📝 **Dual Format Support** - Simple format (`{ path, pattern, replacement }`) and Advanced format (`{ path, patterns: [...] }`)
-- 🛠️ **Smart Error Detection** - Detects typos and suggests corrections (e.g., `pathss` → `path`)
-- ✅ **File Validation** - Checks if target files exist and patterns actually match content
-- 🎯 **Better Feedback** - Detailed error messages with specific plugin, file, and pattern numbers
-
 ## ✨ Features
 
 - 🚀 **Automated versioning** using semantic-release
@@ -26,12 +18,11 @@ Shared semantic-release configuration for Clash Strategic repositories. This pac
 
 ## 📦 Installation
 
+This package now bundles all necessary `semantic-release` plugins, so you only need to install this one package.
+
 ```bash
 # Install from GitHub (recommended)
 npm install --save-dev git+https://github.com/ClashStrategic/release-config.git
-
-# Install semantic-release and required plugins
-npm install --save-dev semantic-release @semantic-release/commit-analyzer @semantic-release/release-notes-generator @semantic-release/npm @semantic-release/changelog @semantic-release/git @semantic-release/github
 ```
 
 ## 🚀 Quick Start
@@ -555,10 +546,6 @@ release:
 **Error: "No GitHub token specified"**
 
 - Solution: Set `GITHUB_TOKEN` or `GH_TOKEN` environment variable
-
-**Error: "Cannot find module '@semantic-release/...'"**
-
-- Solution: Install missing plugins with npm
 
 **Error: "Host key verification failed"**
 
